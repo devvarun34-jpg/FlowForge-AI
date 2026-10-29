@@ -1,6 +1,8 @@
+
 package com.flowforge.backend.auth.jwt;
 
 import java.io.IOException;
+import java.util.Collections;
 
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -31,25 +33,26 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         String authHeader = request.getHeader("Authorization");
 
-        // No Authorization header
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        // Extract JWT
         String token = authHeader.substring(7);
 
         try {
-            if (jwtService.isTokenValid(token)) {
-
+            if (!jwtService.isTokenValid(token)) {
+                System.err.println(
+                        "JWT rejected: token validation returned false."
+                );
+            } else {
                 String email = jwtService.extractEmail(token);
 
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(
                                 email,
                                 null,
-                                java.util.Collections.emptyList()
+                                Collections.emptyList()
                         );
 
                 authentication.setDetails(
@@ -57,13 +60,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                 .buildDetails(request)
                 );
 
-                SecurityContextHolder
-                        .getContext()
+                SecurityContextHolder.getContext()
                         .setAuthentication(authentication);
-            }
 
+                System.out.println(
+                        "JWT authenticated successfully."
+                );
+            }
         } catch (Exception e) {
-            // Invalid token - leave the request unauthenticated
+            System.err.println(
+                    "JWT filter error: "
+                            + e.getClass().getSimpleName()
+                            + " - "
+                            + e.getMessage()
+            );
+
             SecurityContextHolder.clearContext();
         }
 
