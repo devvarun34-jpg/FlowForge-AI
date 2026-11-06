@@ -19,7 +19,10 @@ import com.flowforge.backend.execution.action.DelayAction;
 import com.flowforge.backend.execution.action.HttpAction;
 import com.flowforge.backend.execution.action.LogAction;
 import com.flowforge.backend.execution.entity.Execution;
+import com.flowforge.backend.execution.entity.ExecutionLog;
+import com.flowforge.backend.execution.entity.ExecutionLogStatus;
 import com.flowforge.backend.execution.entity.ExecutionStatus;
+import com.flowforge.backend.execution.repository.ExecutionLogRepository;
 import com.flowforge.backend.execution.repository.ExecutionRepository;
 import com.flowforge.backend.workflow.entity.NodeType;
 import com.flowforge.backend.workflow.entity.Workflow;
@@ -33,6 +36,7 @@ import com.flowforge.backend.workflow.repository.WorkflowRepository;
 public class ExecutionService {
 
     private final ExecutionRepository executionRepository;
+    private final ExecutionLogRepository executionLogRepository;
     private final WorkflowRepository workflowRepository;
     private final WorkflowNodeRepository workflowNodeRepository;
     private final WorkflowEdgeRepository workflowEdgeRepository;
@@ -44,6 +48,7 @@ public class ExecutionService {
 
     public ExecutionService(
             ExecutionRepository executionRepository,
+            ExecutionLogRepository executionLogRepository,
             WorkflowRepository workflowRepository,
             WorkflowNodeRepository workflowNodeRepository,
             WorkflowEdgeRepository workflowEdgeRepository,
@@ -53,6 +58,7 @@ public class ExecutionService {
             DelayAction delayAction) {
 
         this.executionRepository = executionRepository;
+        this.executionLogRepository = executionLogRepository;
         this.workflowRepository = workflowRepository;
         this.workflowNodeRepository = workflowNodeRepository;
         this.workflowEdgeRepository = workflowEdgeRepository;
@@ -62,9 +68,6 @@ public class ExecutionService {
         this.delayAction = delayAction;
     }
 
-    /**
-     * Starts and executes a user's workflow.
-     */
     @Transactional
     public Execution startExecution(UUID workflowId, String userEmail) {
 
@@ -83,7 +86,7 @@ public class ExecutionService {
         execution = executionRepository.saveAndFlush(execution);
 
         try {
-            executeWorkflow(workflowId);
+            executeWorkflow(workflowId, execution);
 
             execution.setStatus(ExecutionStatus.SUCCESS);
             execution.setCompletedAt(LocalDateTime.now());
@@ -104,10 +107,9 @@ public class ExecutionService {
         return executionRepository.save(execution);
     }
 
-    /**
-     * Traverses and executes a linear workflow graph.
-     */
-    private void executeWorkflow(UUID workflowId) throws Exception {
+    private void executeWorkflow(
+            UUID workflowId,
+            Execution execution) throws Exception {
 
         List<WorkflowNode> nodes =
                 workflowNodeRepository.findByWorkflowId(workflowId);
@@ -174,9 +176,7 @@ public class ExecutionService {
                     "Executing node: " + currentNodeId
                             + " (" + currentNode.getType() + ")");
 
-            String result = executeNode(currentNode);
-
-            System.out.println("Node result: " + result);
+            executeNodeWithLogging(currentNode, execution);
 
             List<WorkflowEdge> nextEdges =
                     outgoingEdges.getOrDefault(
@@ -203,13 +203,46 @@ public class ExecutionService {
         }
     }
 
-    /**
-     * Selects the action corresponding to a node's type.
-     */
+    private void executeNodeWithLogging(
+            WorkflowNode node,
+            Execution execution) throws Exception {
+
+        ExecutionLog log = new ExecutionLog(
+                execution,
+                node.getId(),
+                node.getType()
+        );
+
+        try {
+            String result = executeNode(node);
+
+            log.setStatus(ExecutionLogStatus.SUCCESS);
+            log.setOutput(result);
+            log.setCompletedAt(LocalDateTime.now());
+
+            executionLogRepository.saveAndFlush(log);
+
+            System.out.println("Node result: " + result);
+
+        } catch (Exception exception) {
+
+            log.setStatus(ExecutionLogStatus.FAILED);
+            log.setErrorMessage(
+                    exception.getMessage() == null
+                            ? "Node execution failed"
+                            : exception.getMessage()
+            );
+            log.setCompletedAt(LocalDateTime.now());
+
+            executionLogRepository.saveAndFlush(log);
+
+            throw exception;
+        }
+    }
+
     private String executeNode(WorkflowNode node) throws Exception {
 
         String configuration = node.getConfiguration();
-
         NodeType type = node.getType();
 
         if (type == null) {
@@ -222,35 +255,6 @@ public class ExecutionService {
             case LOG -> logAction.execute(configuration);
             case DELAY -> delayAction.execute(configuration);
         };
-    }
-
-    @Transactional
-    public Execution completeExecution(UUID executionId) {
-
-        Execution execution = executionRepository.findById(executionId)
-                .orElseThrow(() ->
-                        new IllegalArgumentException("Execution not found"));
-
-        execution.setStatus(ExecutionStatus.SUCCESS);
-        execution.setCompletedAt(LocalDateTime.now());
-
-        return executionRepository.save(execution);
-    }
-
-    @Transactional
-    public Execution failExecution(
-            UUID executionId,
-            String errorMessage) {
-
-        Execution execution = executionRepository.findById(executionId)
-                .orElseThrow(() ->
-                        new IllegalArgumentException("Execution not found"));
-
-        execution.setStatus(ExecutionStatus.FAILED);
-        execution.setErrorMessage(errorMessage);
-        execution.setCompletedAt(LocalDateTime.now());
-
-        return executionRepository.save(execution);
     }
 
     @Transactional(readOnly = true)
@@ -269,6 +273,35 @@ public class ExecutionService {
         validateWorkflowOwnership(workflow, user);
 
         return executionRepository.findByWorkflowId(workflowId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ExecutionLog> getExecutionLogs(
+            UUID workflowId,
+            UUID executionId,
+            String userEmail) {
+
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() ->
+                        new IllegalArgumentException("User not found"));
+
+        Workflow workflow = workflowRepository.findById(workflowId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException("Workflow not found"));
+
+        validateWorkflowOwnership(workflow, user);
+
+        Execution execution = executionRepository.findById(executionId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException("Execution not found"));
+
+        if (!execution.getWorkflow().getId().equals(workflowId)) {
+            throw new IllegalArgumentException(
+                    "Execution does not belong to this workflow");
+        }
+
+        return executionLogRepository
+                .findByExecutionIdOrderByStartedAtAsc(executionId);
     }
 
     private void validateWorkflowOwnership(

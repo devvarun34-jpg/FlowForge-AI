@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.flowforge.backend.execution.entity.Execution;
+import com.flowforge.backend.execution.entity.ExecutionLog;
 import com.flowforge.backend.execution.service.ExecutionService;
 
 @RestController
@@ -30,7 +31,7 @@ public class ExecutionController {
     public ResponseEntity<ExecutionResponse> startExecution(
             @PathVariable("workflowId") UUID workflowId,
             Authentication authentication) {
-            System.out.println("START EXECUTION CONTROLLER REACHED");
+
         Execution execution = executionService.startExecution(
                 workflowId,
                 authentication.getName()
@@ -45,13 +46,33 @@ public class ExecutionController {
             @PathVariable("workflowId") UUID workflowId,
             Authentication authentication) {
 
-        List<Execution> executions = executionService.getWorkflowExecutions(
-                workflowId,
-                authentication.getName()
-        );
+        List<Execution> executions =
+                executionService.getWorkflowExecutions(
+                        workflowId,
+                        authentication.getName()
+                );
 
         List<ExecutionResponse> responses = executions.stream()
                 .map(ExecutionResponse::from)
+                .toList();
+
+        return ResponseEntity.ok(responses);
+    }
+
+    @GetMapping("/{executionId}/logs")
+    public ResponseEntity<List<ExecutionLogResponse>> getExecutionLogs(
+            @PathVariable("workflowId") UUID workflowId,
+            @PathVariable("executionId") UUID executionId,
+            Authentication authentication) {
+
+        List<ExecutionLog> logs = executionService.getExecutionLogs(
+                workflowId,
+                executionId,
+                authentication.getName()
+        );
+
+        List<ExecutionLogResponse> responses = logs.stream()
+                .map(ExecutionLogResponse::from)
                 .toList();
 
         return ResponseEntity.ok(responses);
