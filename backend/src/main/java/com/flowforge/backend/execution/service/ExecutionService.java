@@ -97,6 +97,7 @@ public class ExecutionService {
                     exception.getMessage() == null
                             ? "Workflow execution failed"
                             : exception.getMessage());
+
             execution.setCompletedAt(LocalDateTime.now());
 
             System.err.println(
@@ -232,6 +233,7 @@ public class ExecutionService {
                             ? "Node execution failed"
                             : exception.getMessage()
             );
+
             log.setCompletedAt(LocalDateTime.now());
 
             executionLogRepository.saveAndFlush(log);
@@ -273,6 +275,35 @@ public class ExecutionService {
         validateWorkflowOwnership(workflow, user);
 
         return executionRepository.findByWorkflowId(workflowId);
+    }
+
+    // NEW: Retrieve one execution by its ID.
+    @Transactional(readOnly = true)
+    public Execution getExecution(
+            UUID workflowId,
+            UUID executionId,
+            String userEmail) {
+
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() ->
+                        new IllegalArgumentException("User not found"));
+
+        Workflow workflow = workflowRepository.findById(workflowId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException("Workflow not found"));
+
+        validateWorkflowOwnership(workflow, user);
+
+        Execution execution = executionRepository.findById(executionId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException("Execution not found"));
+
+        if (!execution.getWorkflow().getId().equals(workflowId)) {
+            throw new IllegalArgumentException(
+                    "Execution does not belong to this workflow");
+        }
+
+        return execution;
     }
 
     @Transactional(readOnly = true)

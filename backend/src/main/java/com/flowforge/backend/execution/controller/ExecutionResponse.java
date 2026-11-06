@@ -1,6 +1,7 @@
 
 package com.flowforge.backend.execution.controller;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -14,6 +15,7 @@ public class ExecutionResponse {
     private ExecutionStatus status;
     private LocalDateTime startedAt;
     private LocalDateTime completedAt;
+    private Long durationMs;
     private String errorMessage;
 
     public ExecutionResponse() {
@@ -25,22 +27,38 @@ public class ExecutionResponse {
             ExecutionStatus status,
             LocalDateTime startedAt,
             LocalDateTime completedAt,
+            Long durationMs,
             String errorMessage) {
+
         this.id = id;
         this.workflowId = workflowId;
         this.status = status;
         this.startedAt = startedAt;
         this.completedAt = completedAt;
+        this.durationMs = durationMs;
         this.errorMessage = errorMessage;
     }
 
     public static ExecutionResponse from(Execution execution) {
+
+        Long durationMs = null;
+
+        if (execution.getStartedAt() != null
+                && execution.getCompletedAt() != null) {
+
+            durationMs = Duration.between(
+                    execution.getStartedAt(),
+                    execution.getCompletedAt()
+            ).toMillis();
+        }
+
         return new ExecutionResponse(
                 execution.getId(),
                 execution.getWorkflow().getId(),
                 execution.getStatus(),
                 execution.getStartedAt(),
                 execution.getCompletedAt(),
+                durationMs,
                 execution.getErrorMessage()
         );
     }
@@ -65,7 +83,12 @@ public class ExecutionResponse {
         return completedAt;
     }
 
+    public Long getDurationMs() {
+        return durationMs;
+    }
+
     public String getErrorMessage() {
         return errorMessage;
     }
 }
+    

@@ -59,6 +59,22 @@ public class ExecutionController {
         return ResponseEntity.ok(responses);
     }
 
+    // NEW: Retrieve an individual execution.
+    @GetMapping("/{executionId}")
+    public ResponseEntity<ExecutionResponse> getExecution(
+            @PathVariable("workflowId") UUID workflowId,
+            @PathVariable("executionId") UUID executionId,
+            Authentication authentication) {
+
+        Execution execution = executionService.getExecution(
+                workflowId,
+                executionId,
+                authentication.getName()
+        );
+
+        return ResponseEntity.ok(ExecutionResponse.from(execution));
+    }
+
     @GetMapping("/{executionId}/logs")
     public ResponseEntity<List<ExecutionLogResponse>> getExecutionLogs(
             @PathVariable("workflowId") UUID workflowId,
