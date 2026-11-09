@@ -62,4 +62,25 @@ public class WorkflowService {
                 .map(WorkflowResponse::fromEntity)
                 .toList();
     }
+    @Transactional(readOnly = true)
+public void verifyWorkflowOwnership(
+        java.util.UUID workflowId,
+        String userEmail) {
+
+    User user = userRepository
+            .findByEmail(userEmail)
+            .orElseThrow(() ->
+                    new IllegalArgumentException("User not found"));
+
+    Workflow workflow = workflowRepository
+            .findById(workflowId)
+            .orElseThrow(() ->
+                    new IllegalArgumentException("Workflow not found"));
+
+    if (!workflow.getUser().getId().equals(user.getId())) {
+        throw new IllegalArgumentException(
+                "You do not have access to this workflow"
+        );
+    }
+}
 }
