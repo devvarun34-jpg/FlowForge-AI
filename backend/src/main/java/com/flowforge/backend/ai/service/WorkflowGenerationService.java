@@ -1,8 +1,9 @@
 
 package com.flowforge.backend.ai.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
+
 import com.flowforge.backend.ai.dto.WorkflowGenerationResponse;
 import com.flowforge.backend.ai.provider.AIProvider;
 import com.flowforge.backend.ai.validation.GeneratedWorkflowValidator;
@@ -41,7 +42,6 @@ public class WorkflowGenerationService {
         }
 
         String prompt = buildGenerationPrompt(userPrompt);
-
         String aiResponse = aiProvider.generate(prompt);
 
         try {
@@ -51,12 +51,10 @@ public class WorkflowGenerationService {
                             WorkflowGenerationResponse.class
                     );
 
-            // Validate AI output before returning the preview.
             validator.validate(response);
-
             return response;
 
-        } catch (JsonProcessingException exception) {
+        } catch (JacksonException exception) {
 
             throw new IllegalStateException(
                     "Gemini returned an invalid workflow JSON response.",

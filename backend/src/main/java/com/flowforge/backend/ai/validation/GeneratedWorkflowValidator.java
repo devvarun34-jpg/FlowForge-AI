@@ -6,7 +6,7 @@ import java.util.List;
 
 import org.springframework.stereotype.Component;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 import com.flowforge.backend.ai.dto.GeneratedEdge;
 import com.flowforge.backend.ai.dto.GeneratedNode;
 import com.flowforge.backend.ai.dto.WorkflowGenerationResponse;

@@ -1,7 +1,7 @@
 
 package com.flowforge.backend.ai.dto;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 import com.flowforge.backend.workflow.entity.NodeType;
 
 public record GeneratedNode(
