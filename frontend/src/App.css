@@ -1,0 +1,43 @@
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+}
+
+.ff-page {
+  min-height: 100vh;
+  background: var(--ff-bg);
+  color: var(--ff-text);
+}
+
+.ff-accent-text {
+  color: var(--ff-accent);
+}
+
+.ff-panel {
+  background: var(--ff-surface);
+  border: 1px solid var(--ff-border);
+  border-radius: 12px;
+}
+
+.ff-interactive {
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    background-color 180ms ease;
+}
+
+.ff-interactive:hover {
+  transform: translateY(-2px);
+  border-color: var(--ff-accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
